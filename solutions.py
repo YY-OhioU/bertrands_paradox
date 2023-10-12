@@ -5,20 +5,27 @@ import numpy as np
 
 TAU = 2 * np.pi
 
+pygame.init()
+
 
 class SolutionBase:
+    title_font = pygame.font.Font('freesansbold.ttf', 26)
+    body_font = pygame.font.Font('freesansbold.ttf', 20)
+
     def __init__(self, app, max_count=1000):
         self.app = app
         self.surface = app.stage
         self.stop = False
         self.surface_start = (5, 5)
         self.circle_rad = 250
-        self.circle_ori = np.array((int((795 - 5 - 90 - 200) / 2) + 5, 250 + 50))
+        self.circle_ori = np.array((int((795 - 5 - 90 - 200) / 2) + 5, 250 + 50))  # 255, 300
 
         self.mid_circle_rad = 100
-        self.mid_circle_ori = self.circle_ori + np.array([400, -100])
+        self.mid_circle_ori = self.circle_ori + np.array([400, -100])  # 655, 200
 
         self.info_msg = ""
+        self.desc_title = " "
+        self.desc_body = " "
         self.clock = app.clock
         self.prev_time = None
 
@@ -30,6 +37,8 @@ class SolutionBase:
         self.midpoints = None
         self.midpoints_coord = None
         self.lines = None
+
+        self.solution_idx = 0
 
         # self.lines = None
 
@@ -53,6 +62,40 @@ class SolutionBase:
 
         # Second circle
         pygame.draw.circle(self.surface, (255, 255, 255, 255), self.mid_circle_ori, self.mid_circle_rad, 2)
+        self.show_desc()
+
+    def show_desc(self):
+        solution_title = f"Solution {self.solution_idx}"
+        text = self.title_font.render(solution_title, True, (255, 255, 255, 255))
+        text_rect = text.get_rect()
+        text_rect.topleft = (5, 15)
+        self.app.stage.blit(text, text_rect)
+
+        mid_text = "Middle point of chord"
+        font = pygame.font.Font("freesansbold.ttf", 20)
+        text = font.render(mid_text, True, (255, 255, 255, 255))
+        text_rect = text.get_rect()
+        text_rect.center = (655, 320)
+        self.app.stage.blit(text, text_rect)
+
+
+        title = self.desc_title
+        text = self.title_font.render(title, True, (0, 0, 0, 255))
+        text_rect = text.get_rect()
+        text_rect.topleft = (10, 10)
+        self.app.control.blit(text, text_rect)
+
+        body = self.desc_body
+        start_pos = (10, 50)
+
+        for i, line in enumerate(body):
+            text = self.body_font.render(line, True, (0, 0, 0, 255))
+            text_rect = text.get_rect()
+            text_rect.topleft = (start_pos[0], i * 40 + start_pos[1])
+            self.app.control.blit(text, text_rect)
+
+
+        self.app.screen.blit(self.app.control, (5, 705))
 
     def convert_coord(self, coord):
         '''
@@ -65,6 +108,7 @@ class SolutionBase:
     def convert_mid_coord(self):
         mid_points = self.midpoints.T
         mid_coord = mid_points * self.mid_circle_rad + self.mid_circle_ori
+        # mid_coord = mid_points * self.circle_rad + self.circle_ori
         self.midpoints_coord = mid_coord
 
     def get_points_coord_from_mid(self):
@@ -86,8 +130,10 @@ class SolutionBase:
     # def
     def update(self):
         if self.line_count >= self.max_line_count:
-            self.stop = True
-            return
+            # self.stop = True
+            # return
+            self.gather_data()
+            self.line_count = 0
         self.app.text_area.fill((0, 0, 0, 255))
         self.line_count += 1
         chord = self.lines[self.line_count - 1]
@@ -98,12 +144,12 @@ class SolutionBase:
         else:
             self.unqualified += 1
         info_msg = \
-            f"{self.qualified}/({self.qualified}+{self.unqualified}) = {self.qualified / self.line_count:.3f}"
+            f"{self.qualified}/({self.qualified}+{self.unqualified}) = {self.qualified / (self.qualified+self.unqualified):.3f}"
 
         chord = np.swapaxes(chord, 0, 1)
         draw_cord = self.convert_coord(chord)
-        pygame.draw.line(self.surface, (227, 134, 154, 10), draw_cord[0], draw_cord[1])
-        pygame.draw.circle(self.surface, (120, 212, 34, 5), mid, 3)
+        pygame.draw.line(self.surface, (227, 134, 154, 3), draw_cord[0], draw_cord[1])
+        pygame.draw.circle(self.surface, (162, 160, 235, 2), mid, 3)
 
         text = self.app.font.render(info_msg, True, (255, 255, 255, 255))
         text_rect = text.get_rect()
@@ -114,6 +160,13 @@ class SolutionBase:
 class Solution1(SolutionBase):
     def __init__(self, app, *args, **kwargs):
         super().__init__(app, *args, **kwargs)
+        self.desc_title = 'The "random endpoints" method'
+        self.desc_body = [
+            "Choose two random points on the circumference of the circle and draw",
+            "the chord joining them.",
+            "Expected prob: 1/3"
+        ]
+        self.solution_idx = 1
 
     def gather_data(self):
         angles = np.random.random((self.max_line_count, 2)) * TAU
@@ -125,7 +178,20 @@ class Solution1(SolutionBase):
         self.convert_mid_coord()
 
 
+
+
+
 class Solution2(SolutionBase):
+    def __init__(self, app, *args, **kwargs):
+        super().__init__(app, *args, **kwargs)
+        self.desc_title = 'The "random midpoint" method'
+        self.desc_body = [
+            "Choose a point anywhere within the circle and construct a chord with the",
+            "chosen point as its midpoint.",
+            "Expected prob: 1/4"
+        ]
+        self.solution_idx = 2
+
     def gather_data(self):
         angles = np.random.random(self.max_line_count) * TAU
 
@@ -142,6 +208,13 @@ class Solution2(SolutionBase):
 class Solution3(SolutionBase):
     def __init__(self, app, *args, **kwargs):
         super().__init__(app, *args, **kwargs)
+        self.desc_title = 'The "random radial point" method:'
+        self.desc_body = [
+            "Choose a radius of the circle, choose a point on the radius and construct",
+            "the chord through this point and perpendicular to the radius.",
+            "Expected prob: 1/2"
+        ]
+        self.solution_idx = 3
 
     def gather_data(self):
         angles = np.random.random(self.max_line_count) * TAU
@@ -157,3 +230,8 @@ class Solution3(SolutionBase):
     #     self.midpoints_coord = mid_coord
 
 
+__all__ = [
+    'Solution3',
+    'Solution1',
+    'Solution2'
+]
